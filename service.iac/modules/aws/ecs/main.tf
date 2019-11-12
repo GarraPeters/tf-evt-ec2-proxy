@@ -1,65 +1,179 @@
-resource "aws_iam_role" "ecsTaskRole" {
+# resource "aws_iam_role" "ecsTaskRole" {
+#   for_each = { for k, v in var.service_apps : k => v }
+
+#   name = "${each.key}_ecsTaskRole"
+
+#   assume_role_policy = <<EOF
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Sid": "",
+#       "Effect": "Allow",
+#       "Principal": {
+#         "Service": "ecs-tasks.amazonaws.com"
+#       },
+#       "Action": "sts:AssumeRole"
+#     }
+#   ]
+# }
+# EOF
+
+#   tags = {}
+# }
+
+# resource "aws_iam_role" "ecsTaskExecutionRole" {
+#   for_each = { for k, v in var.service_apps : k => v }
+
+#   name = "${each.key}_ecsTaskExecutionRole"
+
+#   assume_role_policy = <<EOF
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Sid": "",
+#       "Effect": "Allow",
+#       "Principal": {
+#         "Service": "ecs-tasks.amazonaws.com"
+#       },
+#       "Action": "sts:AssumeRole"
+#     }
+#   ]
+# }
+# EOF
+
+#   tags = {}
+# }
+
+# data "aws_iam_policy" "AmazonECSTaskExecutionRolePolicy" {
+#   arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+# }
+
+# resource "aws_iam_role_policy_attachment" "AmazonECSTaskExecutionRolePolicy" {
+#   for_each = { for k, v in aws_iam_role.ecsTaskExecutionRole : k => v }
+
+#   role       = aws_iam_role.ecsTaskExecutionRole[each.key].name
+#   policy_arn = data.aws_iam_policy.AmazonECSTaskExecutionRolePolicy.arn
+
+#   depends_on = [
+#     aws_iam_role.ecsTaskExecutionRole,
+#   ]
+# }
+
+resource "aws_iam_role" "ecs-ec2-role" {
   for_each = { for k, v in var.service_apps : k => v }
 
-  name = "${each.key}_ecsTaskRole"
+  name = "${each.key}_ecs-ec2-role"
 
   assume_role_policy = <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "",
-      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
       "Principal": {
-        "Service": "ecs-tasks.amazonaws.com"
+        "Service": "ec2.amazonaws.com"
       },
-      "Action": "sts:AssumeRole"
+      "Effect": "Allow",
+      "Sid": ""
     }
   ]
 }
 EOF
-
-  tags = {}
 }
 
-resource "aws_iam_role" "ecsTaskExecutionRole" {
+resource "aws_iam_instance_profile" "ecs-ec2-role" {
+  for_each = { for k, v in var.service_apps : k => v }
+  name     = "${each.key}_ecs-ec2-role"
+  role     = aws_iam_role.ecs-ec2-role[each.key].name
+
+  depends_on = [aws_iam_role.ecs-ec2-role]
+}
+
+resource "aws_iam_role_policy" "ecs-ec2-role-policy" {
   for_each = { for k, v in var.service_apps : k => v }
 
-  name = "${each.key}_ecsTaskExecutionRole"
+  name = "${each.key}_ecs-ec2-role-policy"
+
+  role = aws_iam_role.ecs-ec2-role[each.key].name
+
+  policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+              "ecs:CreateCluster",
+              "ecs:DeregisterContainerInstance",
+              "ecs:DiscoverPollEndpoint",
+              "ecs:Poll",
+              "ecs:RegisterContainerInstance",
+              "ecs:StartTelemetrySession",
+              "ecs:Submit*",
+              "ecs:StartTask",
+              "ecr:GetAuthorizationToken",
+              "ecr:BatchCheckLayerAvailability",
+              "ecr:GetDownloadUrlForLayer",
+              "ecr:BatchGetImage",
+              "logs:CreateLogStream",
+              "logs:PutLogEvents"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:DescribeLogStreams"
+            ],
+            "Resource": [
+                "arn:aws:logs:*:*:*"
+            ]
+        }
+    ]
+}
+EOF
+
+  depends_on = [aws_iam_role.ecs-ec2-role]
+}
+
+# ecs service role
+resource "aws_iam_role" "ecs-service-role" {
+
+  for_each = { for k, v in var.service_apps : k => v }
+  name     = "${each.key}_ecs-service-role"
 
   assume_role_policy = <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "",
-      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
       "Principal": {
-        "Service": "ecs-tasks.amazonaws.com"
+        "Service": "ecs.amazonaws.com"
       },
-      "Action": "sts:AssumeRole"
+      "Effect": "Allow",
+      "Sid": ""
     }
   ]
 }
 EOF
-
-  tags = {}
 }
 
-data "aws_iam_policy" "AmazonECSTaskExecutionRolePolicy" {
-  arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+resource "aws_iam_role_policy_attachment" "ecs-service-attach" {
+  for_each   = { for k, v in var.service_apps : k => v }
+  role       = aws_iam_role.ecs-service-role[each.key].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole"
+
+  depends_on = [aws_iam_role.ecs-service-role]
 }
 
-resource "aws_iam_role_policy_attachment" "AmazonECSTaskExecutionRolePolicy" {
-  for_each = { for k, v in aws_iam_role.ecsTaskExecutionRole : k => v }
 
-  role       = aws_iam_role.ecsTaskExecutionRole[each.key].name
-  policy_arn = data.aws_iam_policy.AmazonECSTaskExecutionRolePolicy.arn
 
-  depends_on = [
-    aws_iam_role.ecsTaskExecutionRole,
-  ]
-}
 
 
 resource "aws_ecr_repository" "repo" {
@@ -115,9 +229,9 @@ resource "aws_ecs_cluster" "cls" {
   name = each.key
 }
 
-data "aws_iam_role" "ecs_task_execution_role" {
-  name = "ecsTaskExecutionRole"
-}
+# data "aws_iam_role" "ecs_task_execution_role" {
+#   name = "ecsTaskExecutionRole"
+# }
 
 data "aws_region" "current" {}
 
@@ -152,27 +266,31 @@ EOT
 
 
 
-data "aws_ami" "ubuntu" {
+data "aws_ami" "amazon-linux-2" {
   most_recent = true
+
+
+  filter {
+    name   = "owner-alias"
+    values = ["amazon"]
+  }
+
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-trusty-14.04-amd64-server-*"]
+    values = ["amzn2-ami-hvm*"]
   }
 
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  owners = ["099720109477"] # Canonical
+  owners = ["amazon"]
 }
 
-resource "aws_launch_configuration" "as_conf" {
-  name_prefix   = "terraform-lc-example-"
-  image_id      = "${data.aws_ami.ubuntu.id}"
-  instance_type = "t2.micro"
 
+resource "aws_launch_configuration" "as_conf" {
+  for_each             = { for k, v in var.service_apps : k => v }
+  name_prefix          = "${each.key}-proxy-launch-config-"
+  image_id             = data.aws_ami.amazon-linux-2.id
+  instance_type        = "t2.micro"
+  iam_instance_profile = aws_iam_instance_profile.ecs-ec2-role[each.key].id
   lifecycle {
     create_before_destroy = true
   }
@@ -181,11 +299,15 @@ resource "aws_launch_configuration" "as_conf" {
 #!/bin/bash
 echo ECS_CLUSTER=${aws_ecs_cluster.cls[local.service_name].name} >> /etc/ecs/ecs.config
 EOF
+
+  depends_on = [aws_iam_instance_profile.ecs-ec2-role, aws_ecs_cluster.cls, data.aws_ami.amazon-linux-2]
 }
 
-resource "aws_autoscaling_group" "bar" {
-  name                 = "terraform-asg-example"
-  launch_configuration = "${aws_launch_configuration.as_conf.name}"
+
+resource "aws_autoscaling_group" "evt-proxy-asg" {
+  for_each             = { for k, v in var.service_apps : k => v }
+  name                 = "${each.key}-proxy-asg"
+  launch_configuration = aws_launch_configuration.as_conf[each.key].name
   min_size             = 1
   max_size             = 2
   vpc_zone_identifier  = var.aws_vpc_subnets_private.*.id
@@ -193,6 +315,10 @@ resource "aws_autoscaling_group" "bar" {
   lifecycle {
     create_before_destroy = true
   }
+
+  depends_on = [
+    aws_launch_configuration.as_conf,
+  ]
 }
 
 
@@ -223,11 +349,11 @@ resource "aws_ecs_service" "app" {
   name                    = "${each.key}-nginx-proxy"
   cluster                 = aws_ecs_cluster.cls[local.service_name].id
   task_definition         = aws_ecs_task_definition.app[each.key].arn
-  desired_count           = "1"
+  desired_count           = "2"
   launch_type             = "EC2"
   propagate_tags          = "TASK_DEFINITION"
   enable_ecs_managed_tags = true
-
+  iam_role                = aws_iam_role.ecs-service-role[each.key].arn
   deployment_controller {
     type = "ECS"
   }
@@ -235,14 +361,8 @@ resource "aws_ecs_service" "app" {
   deployment_maximum_percent         = 200
   deployment_minimum_healthy_percent = 75
 
-  network_configuration {
-    security_groups  = [aws_security_group.ecs_srv[each.key].id]
-    subnets          = var.aws_vpc_subnets_private.*.id
-    assign_public_ip = false
-  }
 
   load_balancer {
-    # target_group_arn = aws_alb_target_group.app_ecs_fargate[each.key].arn
     elb_name       = var.service_apps_lb[each.key].name
     container_name = each.key
     container_port = 80
@@ -261,6 +381,5 @@ resource "aws_ecs_service" "app" {
     aws_ecs_cluster.cls,
     aws_ecs_task_definition.app,
     aws_security_group.ecs_srv,
-    # aws_alb_target_group.app_ecs_fargate,
   ]
 }
