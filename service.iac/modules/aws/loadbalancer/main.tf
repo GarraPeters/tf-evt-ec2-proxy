@@ -1,7 +1,7 @@
 resource "aws_security_group" "lb" {
   for_each = { for k, v in var.service_apps : k => v }
 
-  name        = "${each.key}-alb"
+  name        = "${each.key}-elb"
   description = "SecurityGroup that manages the ingress and egress connections from/to ${each.key} Application LoadBalancer"
   vpc_id      = var.aws_vpc_id
 
@@ -22,9 +22,10 @@ resource "aws_security_group" "lb" {
 
 
 resource "aws_elb" "app" {
-  for_each = { for k, v in var.service_apps : k => v }
-  name     = "${replace(each.key, "_", "-")}-${replace(each.value.service, "_", "-")}"
-  subnets  = var.service_settings[each.value.service].external ? var.aws_vpc_subnets_public.*.id : var.aws_vpc_subnets_private.*.id
+  for_each        = { for k, v in var.service_apps : k => v }
+  name            = "${replace(each.key, "_", "-")}-${replace(each.value.service, "_", "-")}"
+  security_groups = [aws_security_group.lb[each.key].id]
+  subnets         = var.service_settings[each.value.service].external ? var.aws_vpc_subnets_public.*.id : var.aws_vpc_subnets_private.*.id
 
   listener {
     instance_port     = 80
@@ -110,7 +111,7 @@ resource "aws_acm_certificate" "app" {
 
 
 resource "aws_acm_certificate" "lb_listener_https_default" {
-  for_each = { for k, v in var.service_apps_dns_zone.app : k => v }
+  for_each = { for k, v in var.service_apps_dns_zone : k => v }
 
   domain_name               = var.service_apps_dns_zone[each.key].tags.dns_name
   subject_alternative_names = ["*.${var.service_apps_dns_zone[each.key].tags.dns_name}"]
