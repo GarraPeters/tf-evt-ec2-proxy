@@ -22,10 +22,9 @@ resource "aws_security_group" "lb" {
 
 
 resource "aws_elb" "app" {
-  for_each        = { for k, v in var.service_apps : k => v }
-  name            = "${replace(each.key, "_", "-")}-${replace(each.value.service, "_", "-")}"
-  subnets         = var.service_settings[each.value.service].external ? var.aws_vpc_subnets_public.*.id : var.aws_vpc_subnets_private.*.id
-  security_groups = [aws_security_group.lb[each.key].id]
+  for_each = { for k, v in var.service_apps : k => v }
+  name     = "${replace(each.key, "_", "-")}-${replace(each.value.service, "_", "-")}"
+  subnets  = var.service_settings[each.value.service].external ? var.aws_vpc_subnets_public.*.id : var.aws_vpc_subnets_private.*.id
 
   listener {
     instance_port     = 80
@@ -34,21 +33,14 @@ resource "aws_elb" "app" {
     lb_protocol       = "http"
   }
 
-  # listener {
-  #   instance_port      = 8000
-  #   instance_protocol  = "http"
-  #   lb_port            = 443
-  #   lb_protocol        = "https"
-  #   ssl_certificate_id = "arn:aws:iam::123456789012:server-certificate/certName"
-  # }
+  listener {
+    instance_port      = 80
+    instance_protocol  = "http"
+    lb_port            = 443
+    lb_protocol        = "https"
+    ssl_certificate_id = aws_acm_certificate.lb_listener_https_default[each.key].arn
+  }
 
-  # health_check {
-  #   healthy_threshold   = 2
-  #   unhealthy_threshold = 2
-  #   timeout             = 3
-  #   target              = "HTTP:8000/"
-  #   interval            = 30
-  # }
 
 
   tags = {
@@ -56,7 +48,7 @@ resource "aws_elb" "app" {
     dns_zone_id = var.service_apps_dns_zone[each.key].zone_id
   }
 
-  depends_on = [aws_security_group.lb]
+  depends_on = [aws_acm_certificate.lb_listener_https_default]
 }
 
 
@@ -118,10 +110,10 @@ resource "aws_acm_certificate" "app" {
 
 
 resource "aws_acm_certificate" "lb_listener_https_default" {
-  for_each = { for k, v in aws_elb.app : k => v }
+  for_each = { for k, v in var.service_apps_dns_zone.app : k => v }
 
-  domain_name               = aws_elb.app[each.key].tags.dns_name
-  subject_alternative_names = ["*.${aws_elb.app[each.key].tags.dns_name}"]
+  domain_name               = var.service_apps_dns_zone[each.key].tags.dns_name
+  subject_alternative_names = ["*.${var.service_apps_dns_zone[each.key].tags.dns_name}"]
 
   validation_method = "DNS"
 
@@ -134,7 +126,6 @@ resource "aws_acm_certificate" "lb_listener_https_default" {
     create_before_destroy = true
   }
 
-  depends_on = [aws_elb.app]
 }
 
 resource "aws_route53_record" "lb_listener_https_default_cert_validation" {

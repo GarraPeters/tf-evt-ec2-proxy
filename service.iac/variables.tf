@@ -11,3 +11,8 @@ variable "aws_vpc_subnets_private" {}
 
 variable "evt_env_domain" {}
 variable "evt_env_domain_zone_id" {}
+
+variable "proxy_dest" {
+  type = "string"
+}
+
