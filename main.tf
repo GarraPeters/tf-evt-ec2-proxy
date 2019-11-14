@@ -8,7 +8,6 @@ module "service" {
   aws_vpc_subnets_public  = var.aws_vpc_subnets_public
   aws_vpc_subnets_private = var.aws_vpc_subnets_private
 
-  proxy_dest = "https://api.evrythng.com"
 
   service_settings = {
     "evt_srv_001" = {
@@ -18,9 +17,10 @@ module "service" {
 
   service_apps = {
     "app_123" = {
-      service = "evt_srv_001"
-      image   = "nginx:latest",
-      port    = "80"
+      service    = "evt_srv_001"
+      proxy_dest = "https://api.evrythng.com"
+      // image   = "nginx:latest",
+      // port    = "80"
     }
   }
 

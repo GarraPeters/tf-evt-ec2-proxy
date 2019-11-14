@@ -6,7 +6,3 @@ variable "aws_vpc_subnets_public" {}
 variable "aws_vpc_subnets_private" {}
 
 variable "service_apps_lb" {}
-
-variable "proxy_dest" {
-  type = "string"
-}

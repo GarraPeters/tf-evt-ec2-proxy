@@ -179,8 +179,6 @@ resource "aws_ecs_task_definition" "app" {
   network_mode             = "bridge"
   requires_compatibilities = ["EC2"]
   memory                   = "2048"
-  // task_role_arn            = aws_iam_role.ecsTaskRole[each.key].arn
-  // execution_role_arn       = aws_iam_role.ecsTaskExecutionRole[each.key].arn
 
   container_definitions = <<EOT
 [
@@ -196,7 +194,7 @@ resource "aws_ecs_task_definition" "app" {
     "environment": [
       {
           "name": "PROXY_DEST",
-          "value": "${var.proxy_dest}"
+          "value": "${var.service_apps[each.key].proxy_dest}"
       }
     ],
     "logConfiguration": {

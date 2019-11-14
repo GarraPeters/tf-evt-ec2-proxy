@@ -40,7 +40,7 @@ module "ecs" {
   aws_vpc_subnets_private = var.aws_vpc_subnets_private
 
   service_apps_lb = module.loadbalancer.service_apps_elb
-  proxy_dest      = var.proxy_dest
+  // proxy_dest      = var.proxy_dest
 
 }
 
