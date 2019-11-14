@@ -179,12 +179,13 @@ resource "aws_ecs_task_definition" "app" {
   network_mode             = "bridge"
   requires_compatibilities = ["EC2"]
   memory                   = "2048"
-
+  // task_role_arn            = aws_iam_role.ecsTaskRole[each.key].arn
+  // execution_role_arn       = aws_iam_role.ecsTaskExecutionRole[each.key].arn
 
   container_definitions = <<EOT
 [
   {
-    "image": "nginx:latest",
+    "image": "884846387414.dkr.ecr.eu-west-3.amazonaws.com/app_123:latest",
     "name": "${each.key}",
     "portMappings": [
       {
@@ -255,8 +256,8 @@ resource "aws_autoscaling_group" "evt-proxy-asg" {
   for_each             = { for k, v in var.service_apps : k => v }
   name                 = "${each.key}-proxy-asg"
   launch_configuration = aws_launch_configuration.asg_conf[each.key].name
-  min_size             = 1
-  max_size             = 2
+  min_size             = 2
+  max_size             = 4
   vpc_zone_identifier  = var.aws_vpc_subnets_private.*.id
 
   load_balancers = [var.service_apps_lb[each.key].name]
@@ -298,7 +299,7 @@ resource "aws_ecs_service" "app" {
   name                    = "${each.key}-nginx-proxy"
   cluster                 = aws_ecs_cluster.cls[local.service_name].id
   task_definition         = aws_ecs_task_definition.app[each.key].arn
-  desired_count           = "1"
+  desired_count           = "2"
   launch_type             = "EC2"
   propagate_tags          = "TASK_DEFINITION"
   enable_ecs_managed_tags = true
